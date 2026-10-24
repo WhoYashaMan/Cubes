@@ -1,0 +1,735 @@
+<!doctype html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, user-scalable=no">
+<meta name="theme-color" content="#1b1830">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="Кубики">
+<meta name="apple-mobile-web-app-status-bar-style" content="black">
+<title>Кубики</title>
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="icon" href="icon-192.png">
+<link rel="apple-touch-icon" href="icon-192.png">
+<link href="https://fonts.googleapis.com/css2?family=Press+Start+2P&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Pixelify+Sans:wght@400;600&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg: #1b1830; --ink: #f4f1e8; --dim: #8d88aa; --gold: #e8b84a; --blue: #2f5bdc; --dark: #161226;
+    box-sizing: border-box;
+    padding-top: env(safe-area-inset-top, 0px);
+    padding-bottom: env(safe-area-inset-bottom, 0px);
+    color-scheme: dark;
+  }
+  html { height: 100%; background: var(--bg); scroll-padding-top: env(safe-area-inset-top, 0px); }
+  body {
+    margin: 0; height: 100%; background: var(--bg); color: var(--ink);
+    font-family: 'Press Start 2P', ui-monospace, Menlo, Consolas, monospace;
+    overflow: hidden; touch-action: manipulation; -webkit-user-select: none; user-select: none;
+    -webkit-tap-highlight-color: transparent;
+  }
+  [hidden] { display: none !important; }
+  #stage { position: relative; margin: 0 auto; overflow: hidden; }
+  canvas { display: block; image-rendering: pixelated; image-rendering: crisp-edges; }
+
+  button {
+    font-family: inherit; color: var(--dark); background: var(--gold);
+    border: 3px solid var(--dark); border-radius: 0; cursor: pointer;
+    box-shadow: 0 4px 0 #8a5a1c;
+  }
+  button:active { transform: translateY(3px); box-shadow: 0 1px 0 #8a5a1c; }
+  button:focus-visible { outline: 3px solid var(--ink); outline-offset: 2px; }
+  button:disabled { opacity: .55; cursor: default; }
+
+  /* меню */
+  #menu { position: absolute; left: 0; right: 0; top: 34%; display: flex; flex-direction: column; align-items: center; gap: 24px; pointer-events: none; }
+  #menu .big {
+    width: min(78%, 320px); font-size: 18px; padding: 24px 10px;
+    transform: translateY(-150vh); transition: transform .9s cubic-bezier(.2, 1.35, .35, 1);
+    box-shadow: 0 6px 0 #8a5a1c; border-width: 4px;
+  }
+  #btnBasic { background: var(--blue); color: var(--ink); box-shadow: 0 6px 0 #1b2f78 !important; transition-delay: .18s !important; }
+  #btnBloha { transition-delay: 0s !important; }
+  #menu.in .big { transform: none; }
+  #menu.ready { pointer-events: auto; }
+  #menu.in .big:active { transform: translateY(5px); }
+
+  /* игра */
+  #top { position: absolute; left: 0; right: 0; top: 0; height: 60px; display: flex; align-items: center; justify-content: space-between; gap: 8px; padding: 0 10px; }
+  #back { font-size: 10px; padding: 12px 10px; white-space: nowrap; background: #2b2748; color: var(--ink); box-shadow: 0 4px 0 #0f0c1c; }
+  #counts { display: flex; gap: 6px; }
+  .cnt { width: 38px; height: 42px; font-size: 14px; padding: 0; background: #2b2748; color: var(--ink); box-shadow: 0 4px 0 #0f0c1c; }
+  .cnt.sel { background: var(--gold); color: var(--dark); box-shadow: 0 4px 0 #8a5a1c; }
+  #modeTitle { font-size: 12px; color: var(--gold); padding-right: 8px; }
+
+  #hud { position: absolute; left: 0; right: 0; bottom: 120px; padding: 0 12px; text-align: center; overflow-x: hidden; overflow-y: auto; display: flex; flex-direction: column; align-items: center; gap: 6px; }
+  #digits { font-size: calc(22px * var(--k, 1)); letter-spacing: 8px; margin-right: -8px; min-height: 30px; line-height: 30px; }
+  #cname { font-size: calc(14px * var(--k, 1)); color: var(--gold); line-height: 1.3; }
+  #cdesc, #cextra { font-family: 'Pixelify Sans', 'Press Start 2P', ui-monospace, monospace; font-size: calc(15px * var(--k, 1)); line-height: 1.25; color: var(--ink); }
+  #cdesc div { margin-bottom: 4px; }
+  #cextra { color: var(--gold); }
+
+  #bottom { position: absolute; left: 0; right: 0; bottom: 8px; height: 108px; display: flex; flex-direction: column; align-items: center; justify-content: flex-end; gap: 8px; }
+  #roll { width: min(86%, 360px); height: 76px; font-size: 20px; }
+  #pcount { height: 16px; font-size: 9px; color: var(--dim); }
+
+  #confirm { position: absolute; inset: 0; background: rgba(10, 8, 24, .78); display: flex; align-items: center; justify-content: center; z-index: 10; }
+  #confirm .box { background: var(--bg); border: 4px solid var(--gold); padding: 22px 18px; width: min(86%, 340px); text-align: center; box-shadow: 0 6px 0 #000; }
+  #confirm p { font-size: 12px; line-height: 1.6; margin: 0 0 18px; }
+  #confirm .row { display: flex; gap: 14px; justify-content: center; }
+  #confirm button { font-size: 12px; padding: 14px 22px; }
+  #no { background: #2b2748; color: var(--ink); box-shadow: 0 4px 0 #0f0c1c; }
+</style>
+</head>
+<body>
+<div id="stage">
+  <canvas id="cv"></canvas>
+
+  <div id="menu" hidden>
+    <button class="big" id="btnBasic"></button>
+    <button class="big" id="btnBloha"></button>
+  </div>
+
+  <div id="game" hidden>
+    <div id="top">
+      <button id="back"></button>
+      <div id="counts"></div>
+      <div id="modeTitle"></div>
+    </div>
+    <div id="hud">
+      <div id="digits"></div>
+      <div id="cname"></div>
+      <div id="cdesc"></div>
+      <div id="cextra"></div>
+    </div>
+    <div id="bottom">
+      <button id="roll"></button>
+      <div id="pcount"></div>
+    </div>
+  </div>
+
+  <div id="confirm" hidden>
+    <div class="box">
+      <p id="confirmText"></p>
+      <div class="row"><button id="yes"></button><button id="no"></button></div>
+    </div>
+  </div>
+</div>
+
+<script>
+(() => {
+'use strict';
+
+/* ====================== ТЕКСТЫ (язык: ru; позже добавим en) ====================== */
+const T = {
+  basic: 'Обычные', bloha: 'БлоХа', roll: 'Бросить', back: '← Назад',
+  confirm: 'Вернуться в главное меню?', yes: 'Да', no: 'Нет',
+  dup: 'Дубль', polug: 'Полугаевских: ',
+  cats: 'Коты', catsAgain: 'Бросай ещё раз', catsExtra: 'Бросай ещё раз, это коты'
+};
+
+// Ключ — цифры по возрастанию (541 -> '145'). extra: true = добавить строку «Бросай ещё раз, это коты».
+const COMBOS = {
+  '111': { name: 'Пыжи',     desc: ['Трать с умом, это редкость'], extra: true },
+  '333': { name: 'Чижи',     desc: ['Чижи прилетели! Внимание на перекрёсток!'], extra: true },
+  '222': { name: 'Тройник',  desc: ['Можно использовать как 6 для зарядки'], extra: true },
+  '444': { name: 'Кроты',    desc: ['Можно переместиться из домика в домик минуя все препятствия'], extra: true },
+  '555': { name: 'Цветы',    desc: ['Праздник! Скорее домой! Бери любую свою фишку и ставь максимально близко к финишу! Ура!'], extra: true },
+  '666': { name: 'Сотона',   desc: ['Благо или Проклятие?', 'Благо: В твоём финишном доме нет фишек? Ходи положенное и бросай ещё раз!', 'Проклятье: Там кто-то есть? Ближайший к финишу из них отправляется на старт до зарядки, а ты пропускаешь ход.'] },
+  '123': { name: 'Небритость', desc: ['Пропусти ход. Следующий!'] },
+  '234': { name: 'Щетина',     desc: ['Умойся. Пропусти ход. Следующий!'] },
+  '345': { name: 'Бородёнка',  desc: ['Побрейся. Пропусти ход. Следующий!'] },
+  '456': { name: 'Борода',     desc: ['Зарос. Постригись. Побрейся. Пропусти ход. Следующий!'] },
+  '455': { name: 'Бутоньерка', desc: ['Вы прекрасны. Ходите. Бросайте ещё раз'] },
+  '145': { name: 'Говно',        desc: ['Ну это говно какое-то! Ни коты, ни чего...'] },
+  '245': { name: 'Большая глина', desc: ['Ну, конечно, так себе ситуация...'] }
+};
+const POLUG_KEY = '244';
+const POLUG_FIRST  = { name: 'Полугаевский',  desc: ['Ну вот, другое дело! Началась настоящая игра! Бросай ещё раз.'] };
+const POLUG_SECOND = { name: 'Полугаевский!', desc: ['Ну вот, настоящая игра закончилась, но ты продолжай, бросай еще раз!'] };
+
+/* ====================== НАСТРОЙКИ ====================== */
+const ROLL_MIN = 0.5, ROLL_MAX = 2.0;   // длительность «качения» каждого кубика, сек
+const TILT_DEG = 22;                     // наклон камеры от вертикали
+const DIAG_START = 0.45;                 // шанс падения «ребром» (45°)
+const TWIST_P = 0.3;                     // шанс доворота на ±45° при перекате
+const P_STOP_SLOW = 0.65, P_STOP_FAST = 0.12;      // удар о борт/кубик: шанс остановиться
+const P_BOUNCE_SLOW = 0.10, P_BOUNCE_FAST = 0.55;  // удар о борт/кубик: шанс сильного отскока
+const BLOHA_DICE = 3;
+const TOP_CSS = 60, BOTTOM_CSS = 120, HUD_MIN = 112;
+
+/* ====================== ГЕОМЕТРИЯ ====================== */
+const Z = 1.5;                            // плотность пиксель-арта
+const COLS = 4, ROWS = 5, S = 24 * Z;     // размер лотка (под 5 кубиков, одинаковый в обоих режимах)
+const h = 10 * Z;                         // половина ребра кубика
+const WALL = 6 * Z, WALLH = 8 * Z;
+const FX = COLS * S / 2, FZ = ROWS * S / 2;
+const TILT = TILT_DEG * Math.PI / 180, CT = Math.cos(TILT), ST = Math.sin(TILT);
+
+/* ====================== ПАЛИТРА ====================== */
+const hex = s => { const n = parseInt(s.slice(1), 16); const r = n >> 16 & 255, g = n >> 8 & 255, b = n & 255; return (255 << 24) | (b << 16) | (g << 8) | r; };
+const C = {
+  bg: '#1b1830', bgDot: '#231f3b', shadowTray: '#120f20', out: '#161226',
+  felt: '#2f7a52', felt2: '#296c48',
+  woodL: '#c08448', woodHi: '#dca66a', woodM: '#8c5a32', woodD: '#5e3a22'
+};
+const WHITE = [hex('#f4f1e8'), hex('#d8d5ca'), hex('#b0aea8')];
+const BLUE  = [hex('#2f5bdc'), hex('#2849b5'), hex('#213c94')];
+const REDP  = [hex('#e23535'), hex('#bd2a2a'), hex('#9a2121')];
+const OUT   = hex(C.out);
+
+/* ====================== МАТЕМАТИКА ====================== */
+const I3 = [1,0,0, 0,1,0, 0,0,1];
+const UP = [0,1,0];
+const mul = (a,b) => { const r = new Array(9); for (let i=0;i<3;i++) for (let j=0;j<3;j++) r[i*3+j] = a[i*3]*b[j] + a[i*3+1]*b[3+j] + a[i*3+2]*b[6+j]; return r; };
+const mv  = (a,v) => [a[0]*v[0]+a[1]*v[1]+a[2]*v[2], a[3]*v[0]+a[4]*v[1]+a[5]*v[2], a[6]*v[0]+a[7]*v[1]+a[8]*v[2]];
+const mtv = (a,v) => [a[0]*v[0]+a[3]*v[1]+a[6]*v[2], a[1]*v[0]+a[4]*v[1]+a[7]*v[2], a[2]*v[0]+a[5]*v[1]+a[8]*v[2]];
+const rot = (k,t) => { const c=Math.cos(t), s=Math.sin(t), q=1-c, x=k[0], y=k[1], z=k[2];
+  return [c+x*x*q, x*y*q-z*s, x*z*q+y*s,  y*x*q+z*s, c+y*y*q, y*z*q-x*s,  z*x*q-y*s, z*y*q+x*s, c+z*z*q]; };
+const SNAPV = [0, Math.SQRT1_2, 1];
+const snap1 = v => { const a = Math.abs(v); let best = 0, bd = 9; for (const c of SNAPV) { const dd = Math.abs(a - c); if (dd < bd) { bd = dd; best = c; } } return v < 0 ? -best : best; };
+const snap = a => a.map(snap1);
+const rand = (a,b) => a + Math.random() * (b - a);
+const clamp = (v,a,b) => Math.max(a, Math.min(b, v));
+const randAxis = () => { const z = rand(-1,1), t = rand(0, Math.PI*2), r = Math.sqrt(1 - z*z); return [r*Math.cos(t), r*Math.sin(t), z]; };
+function randOri() {
+  let m = I3; const axes = [[1,0,0],[0,1,0],[0,0,1]]; const n = 4 + (Math.random()*6|0);
+  for (let i=0;i<n;i++) m = snap(mul(rot(axes[Math.random()*3|0], (Math.PI/2) * (Math.random()<.5?1:-1)), m));
+  return m;
+}
+// Грани: +Y=1, -Y=6, +X=2, -X=5, +Z=4, -Z=3 (противоположные дают 7). Сверху 1, справа 2, слева 4.
+function topVal(R) {
+  for (let i=0;i<3;i++) { const y = R[3+i]; if (Math.abs(y) > .5) { const p = y > 0; return i===0 ? (p?2:5) : i===1 ? (p?1:6) : (p?4:3); } }
+  return 1;
+}
+
+/* ====================== ХОЛСТ И РАСКЛАДКА ====================== */
+const $ = id => document.getElementById(id);
+const cv = $('cv'), ctx = cv.getContext('2d');
+const stage = $('stage');
+let W = 0, H = 0, scale = 2, offX = 0, offY = 0, bgC = null, bgP = null, frC = null, floorRect = [0,0,0,0];
+
+const mk = (w,hh) => { const c = document.createElement('canvas'); c.width = w; c.height = hh; return c; };
+const projY = (y,z) => Math.round(offY + z*CT - y*ST);
+const projX = x => Math.round(offX + x);
+
+function buildStatic() {
+  bgC = mk(W,H); bgP = mk(W,H); frC = mk(W,H);
+  const g = bgC.getContext('2d'), f = frC.getContext('2d'), p = bgP.getContext('2d');
+  const rect = (c, col, x0,y0,x1,y1) => { c.fillStyle = col; c.fillRect(x0, y0, x1-x0, y1-y0); };
+
+  [p, g].forEach(c => {
+    rect(c, C.bg, 0,0,W,H);
+    c.fillStyle = C.bgDot;
+    for (let y=0;y<H;y++) for (let x=0;x<W;x++) if ((x*13 + y*7) % 29 === 0) c.fillRect(x,y,1,1);
+  });
+
+  const xL = projX(-FX-WALL), xR = projX(FX+WALL), fxL = projX(-FX), fxR = projX(FX);
+  const yFarTop = projY(WALLH, -FZ-WALL), yFarTopIn = projY(WALLH, -FZ), yFarFloor = projY(0, -FZ);
+  const yFloorBot = projY(0, FZ);
+  const yNearTopIn = projY(WALLH, FZ), yNearTopOut = projY(WALLH, FZ+WALL), yNearBase = projY(0, FZ+WALL);
+  floorRect = [fxL, yFarFloor, fxR, yFloorBot];
+
+  rect(g, C.shadowTray, xL+3, yFarTop+4, xR+3, yNearBase+4);
+  rect(g, C.out, xL-1, yFarTop-1, xR+1, yNearBase+1);
+  rect(g, C.woodL, xL, yFarTop, fxL, yNearTopOut);
+  rect(g, C.woodL, fxR, yFarTop, xR, yNearTopOut);
+  rect(g, C.woodL, xL, yFarTop, xR, yFarTopIn);
+  rect(g, C.woodHi, xL, yFarTop, xR, yFarTop+1);
+  rect(g, C.woodHi, xL, yFarTop, xL+1, yNearTopOut);
+  rect(g, C.woodM, xR-1, yFarTop, xR, yNearTopOut);
+  rect(g, C.woodD, fxL, yFarTopIn, fxR, yFarFloor);
+  rect(g, C.felt, fxL, yFarFloor, fxR, yFloorBot);
+  g.fillStyle = C.felt2;
+  for (let y=yFarFloor; y<yFloorBot; y++) for (let x=fxL; x<fxR; x++) if ((x*3 + y*5) % 7 === 0) g.fillRect(x,y,1,1);
+  rect(g, C.out, fxL-1, yFarTopIn, fxL, yFloorBot);
+  rect(g, C.out, fxR, yFarTopIn, fxR+1, yFloorBot);
+  rect(g, C.out, fxL, yFarFloor-1, fxR, yFarFloor);
+
+  rect(f, C.woodL, xL, yNearTopIn, xR, yNearTopOut);
+  rect(f, C.woodHi, xL, yNearTopIn, xR, yNearTopIn+1);
+  rect(f, C.out, fxL, yNearTopIn-1, fxR, yNearTopIn);
+  rect(f, C.woodM, xL, yNearTopOut, xR, yNearBase);
+  rect(f, C.woodD, xL, yNearBase-1, xR, yNearBase);
+  rect(f, C.out, xL-1, yNearBase, xR+1, yNearBase+1);
+  rect(f, C.out, xL-1, yNearTopIn-1, xL, yNearBase+1);
+  rect(f, C.out, xR, yNearTopIn-1, xR+1, yNearBase+1);
+  return yNearBase;
+}
+
+function layout() {
+  const cw = document.body.clientWidth, ch = document.body.clientHeight;
+  const trayH = Math.ceil(2*(FZ+WALL)*CT + 2*WALLH*ST) + 6;
+  let s = (ch - TOP_CSS - HUD_MIN - BOTTOM_CSS - 16) / trayH;
+  if (s >= 1.9) s = Math.min(3, Math.floor(s + .12)); else s = Math.max(1.4, s);
+  const maxW = Math.min(cw, 600);
+  if (maxW / s < 176) s = (maxW / 176 >= 2) ? Math.floor(maxW / 176) : maxW / 176;
+  scale = s;
+  W = Math.floor(maxW / s); H = Math.floor(ch / s);
+  cv.width = W; cv.height = H;
+  cv.style.width = W * s + 'px'; cv.style.height = H * s + 'px';
+  stage.style.width = W * s + 'px'; stage.style.height = ch + 'px';
+  offX = Math.floor(W / 2);
+  offY = Math.round(TOP_CSS / s + 6 + (FZ+WALL)*CT + WALLH*ST);
+  const bottom = buildStatic();
+  $('hud').style.top = Math.round(bottom * s + 10) + 'px';
+}
+
+/* ====================== КУБИКИ: ОБЩЕЕ ====================== */
+let screen = 'splash';            // splash | menu | game
+let mode = null;                  // 'basic' | 'bloha'
+let N = 2;                        // число кубиков в обычном режиме (1–5)
+let polug = 0;                    // счётчик «Полугаевских» в рамках сессии
+let rolling = false;
+const cnt = () => mode === 'bloha' ? BLOHA_DICE : N;
+const dice = [0,1,2,3,4].map(id => ({ id, visible: false, phase: 'idle', R: I3, Rv: I3, x: 0, y: h, z: 0, diag: false, yawV: 0, dy: 0 }));
+const A = () => dice.slice(0, cnt());
+
+const PQ = .5, EDGE = 1 - 1.5 / h;
+const PIPS = {
+  1: [[0,0]],
+  2: [[-PQ,-PQ],[PQ,PQ]],
+  3: [[-PQ,-PQ],[0,0],[PQ,PQ]],
+  4: [[-PQ,-PQ],[PQ,-PQ],[-PQ,PQ],[PQ,PQ]],
+  5: [[-PQ,-PQ],[PQ,-PQ],[-PQ,PQ],[PQ,PQ],[0,0]],
+  6: [[-PQ,-PQ],[-PQ,0],[-PQ,PQ],[PQ,-PQ],[PQ,0],[PQ,PQ]]
+};
+const LIGHT = (() => { const v = [-.35,.85,.4]; const l = Math.hypot(...v); return v.map(a => a/l); })();
+
+/* ====================== ОТРИСОВКА КУБИКА (рейкаст по пикселям) ====================== */
+const SPR = 60, SH = SPR/2;
+// У каждого кубика свой холст-спрайт (Safari на iPad путает один общий)
+const sprites = [0,1,2,3,4].map(() => { const c = mk(SPR, SPR), x = c.getContext('2d'), im = x.createImageData(SPR, SPR); return { c, x, im, buf: new Uint32Array(im.data.buffer) }; });
+const sCopy = new Uint32Array(SPR*SPR);
+const o3 = new Float64Array(3);
+
+function drawDie(d) {
+  const sx = offX + d.x, sy = offY + d.z*CT - d.y*ST + (d.dy || 0);
+  const ox = Math.round(sx) - SH, oy = Math.round(sy) - SH;
+  const R = d.Rv;
+  const A_ = mtv(R,[1,0,0]), B_ = mtv(R,[0,ST,-CT]), D_ = mtv(R,[0,-CT,-ST]);
+  const sp = sprites[d.id], sBuf = sp.buf;
+  sBuf.fill(0);
+  for (let j=0;j<SPR;j++) {
+    const b = (oy + j + .5) - sy;
+    for (let i=0;i<SPR;i++) {
+      const a = (ox + i + .5) - sx;
+      o3[0] = A_[0]*a - B_[0]*b; o3[1] = A_[1]*a - B_[1]*b; o3[2] = A_[2]*a - B_[2]*b;
+      let te = -1e9, tx = 1e9, ax = -1, miss = false;
+      for (let k=0;k<3;k++) {
+        const dk = D_[k], ok = o3[k];
+        if (Math.abs(dk) < 1e-9) { if (Math.abs(ok) > h) { miss = true; break; } continue; }
+        let t1 = (-h - ok)/dk, t2 = (h - ok)/dk; if (t1 > t2) { const t = t1; t1 = t2; t2 = t; }
+        if (t1 > te) { te = t1; ax = k; }
+        if (t2 < tx) tx = t2;
+      }
+      if (miss || te >= tx || ax < 0) continue;
+      const s = D_[ax] > 0 ? -1 : 1;
+      const p0 = o3[0] + D_[0]*te, p1 = o3[1] + D_[1]*te, p2 = o3[2] + D_[2]*te;
+      let u, v, val;
+      if (ax === 1)      { u = p0/h; v = p2/h; val = s > 0 ? 1 : 6; }
+      else if (ax === 0) { u = p2/h; v = p1/h; val = s > 0 ? 2 : 5; }
+      else               { u = p0/h; v = p1/h; val = s > 0 ? 4 : 3; }
+      const nd = (R[ax]*LIGHT[0] + R[3+ax]*LIGHT[1] + R[6+ax]*LIGHT[2]) * s;
+      const lvl = nd > .6 ? 0 : nd > .15 ? 1 : 2;
+      let col = null;
+      const pips = PIPS[val], r = val === 1 ? .4 : .22, r2 = r*r;
+      for (let q=0;q<pips.length;q++) { const du = u - pips[q][0], dv = v - pips[q][1]; if (du*du + dv*dv <= r2) { col = (val === 1 || val === 3) ? REDP[lvl] : BLUE[lvl]; break; } }
+      if (col === null) {
+        const edge = Math.abs(u) > EDGE || Math.abs(v) > EDGE;
+        col = WHITE[edge ? Math.min(2, lvl+1) : lvl];
+      }
+      sBuf[j*SPR + i] = col;
+    }
+  }
+  sCopy.set(sBuf);
+  for (let j=0;j<SPR;j++) for (let i=0;i<SPR;i++) {
+    if (sCopy[j*SPR+i] !== 0) continue;
+    if ((i>0 && sCopy[j*SPR+i-1]) || (i<SPR-1 && sCopy[j*SPR+i+1]) || (j>0 && sCopy[(j-1)*SPR+i]) || (j<SPR-1 && sCopy[(j+1)*SPR+i])) sBuf[j*SPR+i] = OUT;
+  }
+  sp.x.putImageData(sp.im, 0, 0);
+  ctx.drawImage(sp.c, ox, oy);
+}
+
+function drawShadow(d) {
+  const g = clamp(1 - (d.y - h) / (80 * Z), .35, 1);
+  const r = (h + 1) * g;
+  const cx = Math.round(offX + d.x) + 2, cy = Math.round(offY + d.z*CT + (d.dy || 0)) + 1;
+  const c = Math.cos(d.yawV), s = Math.sin(d.yawV);
+  const ext = Math.ceil(r * 1.45), extY = Math.ceil(ext * CT) + 1;
+  const al = .38 * g * (d.shA === undefined ? 1 : d.shA);
+  if (al <= 0.01) return;
+  ctx.fillStyle = `rgba(10,8,24,${al.toFixed(2)})`;
+  for (let py = -extY; py <= extY; py++) {
+    const zz = (py + .5) / CT;
+    let x0 = null, x1 = null;
+    for (let px = -ext; px <= ext; px++) {
+      const xx = px + .5;
+      const au = Math.abs(xx*c + zz*s), aw = Math.abs(-xx*s + zz*c);
+      if (au <= r && aw <= r && au + aw <= r * 1.7) { if (x0 === null) x0 = px; x1 = px; }
+    }
+    if (x0 !== null) ctx.fillRect(cx + x0, cy + py, x1 - x0 + 1, 1);
+  }
+}
+
+/* ====================== ФИЗИКА БРОСКА ====================== */
+const SQ = Math.SQRT1_2;
+function sqExt(n, diag) {
+  const u1 = diag ? [SQ, SQ] : [1, 0], u2 = diag ? [-SQ, SQ] : [0, 1];
+  return h * (Math.abs(n[0]*u1[0] + n[1]*u1[1]) + Math.abs(n[0]*u2[0] + n[1]*u2[1]));
+}
+function squaresOverlap(a, b, gap) {
+  const dx = b.x - a.x, dz = b.z - a.z;
+  const axes = [a.diag ? [SQ,SQ] : [1,0], a.diag ? [-SQ,SQ] : [0,1], b.diag ? [SQ,SQ] : [1,0], b.diag ? [-SQ,SQ] : [0,1]];
+  for (const n of axes) if (Math.abs(dx*n[0] + dz*n[1]) > sqExt(n, a.diag) + sqExt(n, b.diag) + gap) return false;
+  return true;
+}
+function inBounds(x, z, diag) {
+  const m = (diag ? h * Math.SQRT2 : h) + .5;
+  return Math.abs(x) <= FX - m && Math.abs(z) <= FZ - m;
+}
+function blockers(d) {
+  const out = [];
+  A().forEach(o => {
+    if (o === d) return;
+    if (o.phase === 'wait' || o.phase === 'fall') out.push({ x: o.tx, z: o.tz, diag: o.diag });
+    else if (o.phase === 'roll' || o.phase === 'rest') {
+      out.push({ x: o.x, z: o.z, diag: o.diag });
+      if (o.tipping) out.push({ x: o.ex, z: o.ez, diag: o.ndiag });
+    }
+  });
+  return out;
+}
+
+function buildDurations(T_) {
+  const b = rand(0.08, 0.22);
+  const durs = []; let sum = 0;
+  while (sum < T_) { const d = b * (1 + 2 * Math.pow(sum / T_, 1.5)); durs.push(d); sum += d; }
+  const k = T_ / sum;
+  return durs.map(d => d * k);
+}
+
+function startRoll() {
+  if (rolling || screen !== 'game') return;
+  rolling = true;
+  setRollEnabled(false);
+  clearResult();
+  const placed = [];
+  A().forEach(d => {
+    d.diag = Math.random() < DIAG_START;
+    const m = (d.diag ? h * Math.SQRT2 : h) + 1;
+    let x = 0, z = 0, tries = 0;
+    do { x = rand(-FX + m, FX - m); z = rand(-FZ + m, FZ - m); tries++; }
+    while (tries < 300 && placed.some(p => squaresOverlap({ x, z, diag: d.diag }, p, 3)));
+    placed.push({ x, z, diag: d.diag });
+    d.tx = x; d.tz = z;
+    d.x0 = d.tx + rand(-45,45) * Z; d.z0 = d.tz + rand(-45,45) * Z; d.y0 = rand(55,95) * Z;
+    d.delay = rand(0, .25); d.fallT = rand(.28,.4);
+    d.R = snap(mul(rot(UP, d.diag ? Math.PI/4 : 0), randOri()));
+    d.axis = randAxis(); d.phi0 = rand(1.5,3.5) * Math.PI * (Math.random()<.5?-1:1);
+    d.T = rand(ROLL_MIN, ROLL_MAX); d.durs = buildDurations(d.T);
+    d.tipIdx = 0; d.tipping = false; d.tipT = 0; d.lastAng = null; d.twist = 0;
+    d.lastDur = null; d.tipType = 'roll'; d.bounces = 0; d.dy = 0; d.shA = 1;
+    d.yawV = d.diag ? Math.PI/4 : 0;
+    d.phase = 'wait'; d.t = 0; d.visible = false;
+  });
+  // кубики, которых нет в этом режиме, убираем
+  dice.slice(cnt()).forEach(d => { d.visible = false; d.phase = 'idle'; });
+}
+
+const normA = a => { a = a % (Math.PI*2); return a < 0 ? a + Math.PI*2 : a; };
+const sameA = (a, b) => { const x = Math.abs(normA(a) - normA(b)); return x < 1e-6 || Math.abs(x - Math.PI*2) < 1e-6; };
+
+function dirOK(d, a, nd, bl) {
+  const mx = Math.cos(a), mz = Math.sin(a), ex = d.x + 2*h*mx, ez = d.z + 2*h*mz;
+  if (!inBounds(ex, ez, nd)) return false;
+  const end = { x: ex, z: ez, diag: nd }, mid = { x: d.x + h*mx, z: d.z + h*mz, diag: d.diag };
+  return !bl.some(b => squaresOverlap(end, b, 1) || squaresOverlap(mid, b, -3));
+}
+function startNudge(d, a, sp) {
+  d.m = [Math.cos(a), Math.sin(a)]; d.ang = a; d.sx = d.x; d.sz = d.z; d.ex = d.x; d.ez = d.z;
+  d.ndiag = d.diag; d.twist = 0; d.tipType = 'nudge';
+  d.nudgeAmp = 0.10 + 0.20 * sp; d.tipDur = 0.16; d.tipping = true;
+}
+function beginTip(d) {
+  if (d.tipIdx >= d.durs.length) return false;
+  const base = d.diag ? Math.PI/4 : 0;
+  let angs = [0,1,2,3].map(i => base + i * Math.PI/2).sort(() => Math.random() - .5);
+  if (d.lastAng != null && Math.random() < .55) {
+    const idx = angs.findIndex(a => sameA(a, d.lastAng));
+    if (idx > 0) { const a = angs.splice(idx, 1)[0]; angs.unshift(a); }
+  }
+  const bl = blockers(d);
+  const want = angs[0];
+  if (!dirOK(d, want, d.diag, bl)) {
+    const lastDur = d.lastDur || d.durs[d.tipIdx];
+    const sp = clamp(1 - (lastDur - 0.08) / 0.30, 0, 1);
+    const pStop = P_STOP_SLOW + (P_STOP_FAST - P_STOP_SLOW) * sp;
+    const pBounce = P_BOUNCE_SLOW + (P_BOUNCE_FAST - P_BOUNCE_SLOW) * sp;
+    const r = Math.random();
+    if (r < pStop) { startNudge(d, want, sp); return true; }
+    if (r < pStop + pBounce && (d.bounces || 0) < 2) {
+      const ok = [want + Math.PI, Math.PI - want, -want]
+        .filter(a => !sameA(a, want))
+        .map(a => angs.find(b => sameA(a, b)))
+        .filter(a => a !== undefined && dirOK(d, a, d.diag, bl));
+      if (ok.length) {
+        const a = ok[Math.random() * ok.length | 0];
+        angs = [a, ...angs.filter(b => !sameA(a, b))];
+        const e0 = clamp(lastDur * 0.85, 0.09, 0.26), n = sp > 0.5 ? 2 : 1;
+        const extras = []; for (let i = 0; i < n; i++) extras.push(e0 * (1 + 0.4 * i));
+        d.durs.splice(d.tipIdx, 0, ...extras); d.bounces = (d.bounces || 0) + 1;
+      }
+    }
+  }
+  const twists = Math.random() < TWIST_P ? [(Math.random() < .5 ? 1 : -1) * Math.PI/4, 0] : [0];
+  for (const tw of twists) {
+    const nd = tw !== 0 ? !d.diag : d.diag;
+    for (const a of angs) {
+      if (!dirOK(d, a, nd, bl)) continue;
+      const mx = Math.cos(a), mz = Math.sin(a);
+      d.m = [mx, mz]; d.ang = a; d.sx = d.x; d.sz = d.z; d.ex = d.x + 2*h*mx; d.ez = d.z + 2*h*mz;
+      d.ndiag = nd; d.twist = tw; d.tipType = 'roll';
+      d.tipDur = d.durs[d.tipIdx]; d.tipping = true;
+      return true;
+    }
+  }
+  return false;
+}
+function endTip(d) {
+  if (d.tipType === 'nudge') {
+    d.x = d.sx; d.z = d.sz; d.y = h; d.tipping = false; d.tipIdx = d.durs.length;
+    return;
+  }
+  const [mx, mz] = d.m;
+  d.R = snap(mul(rot(UP, d.twist), mul(rot([mz,0,-mx], Math.PI/2), d.R)));
+  d.x = d.ex; d.z = d.ez; d.y = h; d.diag = d.ndiag;
+  d.yawV = d.diag ? Math.PI/4 : 0;
+  d.lastAng = d.twist ? null : d.ang;
+  d.lastDur = d.tipDur;
+  d.tipIdx++; d.tipping = false;
+}
+function poseTip(d) {
+  const p = clamp(d.tipT / d.tipDur, 0, 1);
+  if (d.tipType === 'nudge') {
+    const mx = -d.m[0], mz = -d.m[1], th = d.nudgeAmp * Math.sin(Math.PI * p);
+    const Rk = rot([mz,0,-mx], th);
+    d.Rv = mul(Rk, d.R);
+    const w = mv(Rk, [-mx*h, h, -mz*h]);
+    d.x = d.sx + mx*h + w[0]; d.y = w[1]; d.z = d.sz + mz*h + w[2];
+    return;
+  }
+  const [mx, mz] = d.m;
+  const th = (Math.PI/2) * (.45*p + .55*p*p);
+  const Rk = rot([mz,0,-mx], th);
+  d.Rv = mul(rot(UP, d.twist * p), mul(Rk, d.R));
+  const pv = [d.sx + mx*h, 0, d.sz + mz*h];
+  const w = mv(Rk, [-mx*h, h, -mz*h]);
+  d.x = pv[0] + w[0]; d.y = pv[1] + w[1]; d.z = pv[2] + w[2];
+  d.yawV = (d.diag ? Math.PI/4 : 0) + d.twist * p;
+}
+function settle(d) {
+  d.phase = 'rest'; d.tipping = false;
+  d.Rv = d.R; d.y = h; d.yawV = d.diag ? Math.PI/4 : 0;
+}
+function updateDie(d, dt) {
+  if (d.phase === 'idle' || d.phase === 'rest') return;
+  d.t += dt;
+  if (d.phase === 'wait') { if (d.t < d.delay) return; d.phase = 'fall'; d.t = 0; d.visible = true; }
+  if (d.phase === 'fall') {
+    const p = Math.min(1, d.t / d.fallT), q = 1 - (1-p)*(1-p);
+    d.y = h + (d.y0 - h) * (1 - p*p);
+    d.x = d.x0 + (d.tx - d.x0) * q; d.z = d.z0 + (d.tz - d.z0) * q;
+    d.Rv = mul(rot(d.axis, d.phi0 * (1-p)), d.R);
+    if (p < 1) return;
+    d.phase = 'roll'; d.tipT = 0; d.tipping = false; d.x = d.tx; d.z = d.tz; d.y = h; d.Rv = d.R;
+    return;
+  }
+  if (d.phase === 'roll') {
+    d.tipT += dt;
+    for (;;) {
+      if (!d.tipping && !beginTip(d)) { settle(d); return; }
+      if (d.tipT >= d.tipDur) { d.tipT -= d.tipDur; endTip(d); } else break;
+    }
+    poseTip(d);
+  }
+}
+
+/* ====================== РЕЗУЛЬТАТ ====================== */
+function setRollEnabled(on) {
+  $('roll').disabled = !on;
+  document.querySelectorAll('.cnt').forEach(b => { b.disabled = !on; });
+}
+function clearResult() {
+  $('digits').textContent = ''; $('cname').textContent = ''; $('cdesc').innerHTML = ''; $('cextra').textContent = '';
+}
+function updatePcount() { $('pcount').textContent = polug > 0 ? T.polug + polug : ''; }
+function fitHud() {
+  const hud = $('hud');
+  for (const k of [1, .92, .85, .78, .7]) { hud.style.setProperty('--k', k); if (hud.scrollHeight <= hud.clientHeight + 1) break; }
+}
+function describeBloha(vals) {
+  const s = [...vals].sort((a,b) => a-b), key = s.join('');
+  const cats = s[0] === s[1] || s[1] === s[2];
+  if (key === POLUG_KEY) { polug++; updatePcount(); return polug % 2 === 1 ? POLUG_FIRST : POLUG_SECOND; }
+  const c = COMBOS[key];
+  if (c) return { name: c.name, desc: c.desc, extra: c.extra ? T.catsExtra : '' };
+  if (cats) return { name: T.cats, desc: [T.catsAgain], extra: '' };
+  return null;
+}
+function showResult(vals) {
+  $('digits').textContent = vals.join(' ');
+  if (mode === 'basic') {
+    $('cname').textContent = new Set(vals).size < vals.length ? T.dup : '';
+  } else {
+    const r = describeBloha(vals);
+    if (r) {
+      $('cname').textContent = r.name;
+      $('cdesc').innerHTML = '';
+      r.desc.forEach(line => { const el = document.createElement('div'); el.textContent = line; $('cdesc').appendChild(el); });
+      $('cextra').textContent = r.extra || '';
+    }
+  }
+  fitHud();
+}
+function finishRoll() {
+  rolling = false;
+  setRollEnabled(true);
+  showResult(A().map(d => topVal(d.R)));
+}
+
+/* ====================== ЭКРАНЫ ====================== */
+function hideDice() { dice.forEach(d => { d.visible = false; d.phase = 'idle'; }); }
+function syncCounts() { document.querySelectorAll('.cnt').forEach(b => b.classList.toggle('sel', +b.dataset.n === N)); }
+function setCount(n) { if (rolling) return; N = n; hideDice(); clearResult(); syncCounts(); }
+
+function enterGame(m) {
+  mode = m; polug = 0; rolling = false;
+  hideDice(); clearResult(); updatePcount();
+  $('menu').hidden = true; $('menu').classList.remove('in', 'ready');
+  $('game').hidden = false;
+  $('counts').hidden = m !== 'basic';
+  $('modeTitle').hidden = m === 'basic';
+  $('modeTitle').textContent = T.bloha;
+  syncCounts(); setRollEnabled(true);
+  screen = 'game';
+}
+function showMenu() {
+  const menu = $('menu');
+  menu.hidden = false; menu.classList.remove('in', 'ready');
+  void menu.offsetWidth;
+  menu.classList.add('in');
+  setTimeout(() => { if (!menu.hidden) menu.classList.add('ready'); }, 1250);
+}
+function exitToMenu() {
+  $('confirm').hidden = true;
+  rolling = false; mode = null; polug = 0;
+  hideDice(); clearResult(); updatePcount();
+  $('game').hidden = true;
+  screen = 'menu';
+  showMenu();
+}
+
+/* ====================== ЗАСТАВКА ====================== */
+// На заставке кубик падает в пустоте и ложится: сверху 1, слева 4, справа 2.
+const sd = { id: 0, visible: false, phase: 'idle', R: I3, Rv: I3, x: 0, z: 0, y: h, yawV: -Math.PI/4, dy: 0, shA: 1 };
+const sp = { t: 0, phase: 'fall', menuShown: false };
+const FALL_T = .85, BOUNCE_T = .3, REST_T = 2.0, SLIDE_T = .95;
+function splashInit() {
+  sd.R = snap(rot(UP, -Math.PI/4));        // +X (грань 2) вправо-вперёд, +Z (грань 4) влево-вперёд, сверху 1
+  sd.Rv = sd.R; sd.axis = randAxis(); sd.phi0 = 3.2 * Math.PI;
+  sd.visible = true; sd.shA = 1; sd.yawV = -Math.PI/4;
+  sp.t = 0; sp.phase = 'fall'; sp.menuShown = false;
+}
+function updateSplash(dt) {
+  sp.t += dt;
+  const target = H * .40;
+  const base = Math.round(target - (offY - h*ST));
+  const Y0 = h + (target + 40) / ST;
+  if (sp.phase === 'fall') {
+    sd.dy = base;
+    const p = Math.min(1, sp.t / FALL_T);
+    sd.y = h + (Y0 - h) * (1 - p*p);
+    sd.Rv = mul(rot(sd.axis, sd.phi0 * (1-p)), sd.R);
+    if (p >= 1) { sp.phase = 'bounce'; sp.t = 0; sd.Rv = sd.R; sd.y = h; }
+  } else if (sp.phase === 'bounce') {
+    sd.dy = base;
+    const u = Math.min(1, sp.t / BOUNCE_T);
+    sd.y = h + 7 * Z * Math.sin(Math.PI * u);
+    if (u >= 1) { sp.phase = 'rest'; sp.t = 0; sd.y = h; }
+  } else if (sp.phase === 'rest') {
+    sd.dy = base; sd.y = h;
+    if (sp.t >= REST_T) { sp.phase = 'slide'; sp.t = 0; }
+  } else if (sp.phase === 'slide') {
+    const u = Math.min(1, sp.t / SLIDE_T), c1 = 1.70158, c3 = c1 + 1;
+    const e = c3*u*u*u - c1*u*u;           // сначала чуть вверх («захлёст»), потом вниз
+    sd.dy = base + e * (H * .6 + 45); sd.shA = 1 - u;
+    if (u >= .3 && !sp.menuShown) { sp.menuShown = true; showMenu(); }
+    if (u >= 1) { sd.visible = false; screen = 'menu'; }
+  }
+}
+
+/* ====================== ОТРИСОВКА КАДРА ====================== */
+function render() {
+  if (screen === 'game') {
+    ctx.drawImage(bgC, 0, 0);
+    const vis = A().filter(d => d.visible).sort((a,b) => a.z - b.z);
+    ctx.save();
+    ctx.beginPath(); ctx.rect(floorRect[0], floorRect[1], floorRect[2]-floorRect[0], floorRect[3]-floorRect[1]); ctx.clip();
+    vis.forEach(drawShadow);
+    ctx.restore();
+    vis.forEach(drawDie);
+    ctx.drawImage(frC, 0, 0);
+  } else {
+    ctx.drawImage(bgP, 0, 0);
+    if (sd.visible) { drawShadow(sd); drawDie(sd); }
+  }
+}
+
+let last = performance.now();
+function frame(now) {
+  const dt = Math.min(.05, (now - last) / 1000); last = now;
+  if (screen === 'splash') updateSplash(dt);
+  else if (screen === 'game' && rolling) {
+    A().forEach(d => updateDie(d, dt));
+    if (A().every(d => d.phase === 'rest')) finishRoll();
+  }
+  render();
+  requestAnimationFrame(frame);
+}
+
+/* ====================== СТАРТ ====================== */
+function applyStrings() {
+  $('btnBasic').textContent = T.basic; $('btnBloha').textContent = T.bloha;
+  $('roll').textContent = T.roll; $('back').textContent = T.back;
+  $('confirmText').textContent = T.confirm; $('yes').textContent = T.yes; $('no').textContent = T.no;
+  const box = $('counts');
+  [1,2,3,4,5].forEach(n => {
+    const b = document.createElement('button');
+    b.className = 'cnt'; b.dataset.n = n; b.textContent = n;
+    b.addEventListener('click', () => setCount(n));
+    box.appendChild(b);
+  });
+}
+applyStrings();
+$('btnBasic').addEventListener('click', () => enterGame('basic'));
+$('btnBloha').addEventListener('click', () => enterGame('bloha'));
+$('roll').addEventListener('click', startRoll);
+$('back').addEventListener('click', () => { $('confirm').hidden = false; });
+$('no').addEventListener('click', () => { $('confirm').hidden = true; });
+$('yes').addEventListener('click', exitToMenu);
+window.addEventListener('keydown', e => { if ((e.code === 'Space' || e.code === 'Enter') && screen === 'game' && $('confirm').hidden) { e.preventDefault(); startRoll(); } });
+window.addEventListener('resize', layout);
+
+layout();
+splashInit();
+requestAnimationFrame(frame);
+
+if ('serviceWorker' in navigator) {
+  window.addEventListener('load', () => { navigator.serviceWorker.register('sw.js').catch(() => {}); });
+}
+})();
+</script>
+</body>
+</html>
