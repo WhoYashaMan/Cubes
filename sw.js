@@ -1,6 +1,6 @@
 // Сервис-воркер: приложение открывается без интернета.
 // Меняешь файлы игры — увеличь номер версии ниже, чтобы телефоны подхватили обновление.
-const CACHE = 'kubiki-v1';
+const CACHE = 'kubiki-v3';
 const CORE = ['./', './index.html', './manifest.webmanifest', './icon-192.png', './icon-512.png'];
 
 self.addEventListener('install', e => {
