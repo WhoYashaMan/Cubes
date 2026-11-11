@@ -1,7 +1,7 @@
 // Сервис-воркер: приложение открывается без интернета.
 // Меняешь файлы игры — увеличь номер версии ниже, чтобы телефоны подхватили обновление.
-const CACHE = 'kubiki-v6';
-const CORE = ['./', './index.html', './manifest.webmanifest', './icon-192.png', './icon-512.png', './apple-touch-icon.png', './icon-512-maskable.png'];
+const CACHE = 'kubiki-v4';
+const CORE = ['./', './index.html', './manifest.webmanifest', './icon-192.png', './icon-512.png', './apple-touch-icon.png'];
 
 self.addEventListener('install', e => {
   e.waitUntil(caches.open(CACHE).then(c => c.addAll(CORE)).then(() => self.skipWaiting()));
